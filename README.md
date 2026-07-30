@@ -178,11 +178,6 @@ The notebook produces 9 publication-quality figures (600 DPI), saved in the [`re
 | [`deeplearning_regression.jpg`](results/deeplearning_regression.jpg) | MLP & regression results |
 | [`final_summary.jpg`](results/final_summary.jpg) | Complete results dashboard |
 
-<p align="center">
-  <img src="results/final_summary.jpg" alt="Final Summary Dashboard" width="90%">
-  <br><em>Final results dashboard — classification, regression, and key insights</em>
-</p>
-
 ---
 
 ## Installation
@@ -206,3 +201,38 @@ source venv/bin/activate        # Linux / macOS
 
 # Install dependencies
 pip install -r requirements.txt
+```
+
+---
+
+## Repository Structure
+
+```
+sEMG_Load_Estimation/
+├── data/                       # Downloaded dataset (auto‑generated)
+├── notebooks/                  # Jupyter notebook with full analysis
+├── src/                        # Source code (if any)
+├── results/                    # Generated figures (9 images)
+├── assets/                     # Banner and thank-you image
+├── requirements.txt            # Python dependencies
+├── LICENSE                     # MIT License
+└── README.md                   # This file
+```
+
+---
+
+## Future Work
+
+- **CNN / LSTM architectures** on raw time‑series to avoid manual feature engineering.
+- **Transfer learning** across subjects to improve generalisation.
+- **Real‑time deployment** on edge devices for wearable rehabilitation systems.
+- **Multi‑task learning** to jointly predict load and exercise type.
+
+---
+
+## Thank You
+
+<div align="center">
+  <img src="assets/last.png" alt="Thank You" width="400"/>
+</div>
+```
