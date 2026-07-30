@@ -233,6 +233,6 @@ sEMG_Load_Estimation/
 ## Thank You
 
 <div align="center">
-  <img src="assets/last.png" alt="Thank You" width="400"/>
+  <img src="assets/last.png">
 </div>
 ```
