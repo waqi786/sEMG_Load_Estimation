@@ -1,0 +1,309 @@
+<div align="center">
+
+<img src="assets/banner.png" alt="sEMG-based Joint Torque & Load Estimation" width="100%">
+
+<br><br>
+
+[![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.0%2B-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
+[![XGBoost](https://img.shields.io/badge/XGBoost-1.5%2B-009639?style=for-the-badge&logo=xgboost&logoColor=white)](https://xgboost.readthedocs.io)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
+[![University of Tsukuba](https://img.shields.io/badge/University%20of%20Tsukuba-Research-8B0000?style=for-the-badge)](https://www.tsukuba.ac.jp/en/)
+
+**Estimating joint torque and external load from surface Electromyography (sEMG) signals using classical ML, deep learning, and unsupervised clustering.**
+
+[Overview](#overview) · [Dataset](#dataset) · [Methodology](#methodology) · [Results](#results) · [Installation](#installation) · [Usage](#usage) · [Repository Structure](#repository-structure) · [Future Work](#future-work)
+
+</div>
+
+---
+
+## Overview
+
+This repository implements a complete **machine learning pipeline** for estimating **joint torque / external load** from **surface Electromyography (sEMG)** signals. The project was developed under the supervision of **Prof. Yoshiori Fujii** at the **University of Tsukuba** as part of a research collaboration on **stroke rehabilitation** and **spinal cord injury (SCI) gait analysis**.
+
+The pipeline covers the full research workflow:
+
+| Stage | Description |
+|-------|-------------|
+| **Data Loading** | Automatic download of the open EMG Elbow Dataset from Zenodo |
+| **Preprocessing** | Time-domain statistical feature extraction from 5 EMG channels |
+| **EDA** | Waveform analysis, correlation heatmaps, PSD & spectrogram |
+| **Supervised ML** | 5 classifiers for discrete load classification |
+| **Unsupervised ML** | 5 clustering algorithms with ARI / Silhouette evaluation |
+| **Deep Learning** | Multi-Layer Perceptron (MLP) for classification & regression |
+| **Regression** | 5 regressors for continuous load estimation in grams |
+
+> **Author:** Waqar Ali · **Supervisor:** Prof. Yoshiori Fujii · **Institution:** University of Tsukuba · **Date:** July 2026
+
+---
+
+## Dataset
+
+We use the **[EMG Elbow Dataset](https://zenodo.org/record/7946782/files/EMG%20elbow%20dataset.zip)** hosted on Zenodo (Record `7946782`).
+
+| Property | Value |
+|----------|-------|
+| **Subjects** | 10 healthy adults (6 male, 4 female) |
+| **EMG Channels** | 5 per recording |
+| **Sampling Rate** | 2000 Hz |
+| **Load Conditions** | 0 g · 1360 g · 2270 g |
+| **Exercises** | Flexion–Extension (`flex`) · Pronation–Supination (`pronsup`) |
+| **Total Recordings** | 120 signal files (balanced across all conditions) |
+| **File Format** | `{subj}_{exercise}_{set_type}_{load}.txt` |
+| **Target Variable** | Load (grams) — proxy for joint torque / force |
+
+The dataset is **automatically downloaded** when you run the analysis script or notebook — no manual setup required.
+
+---
+
+## Methodology
+
+### 1. Feature Extraction
+
+**40 time-domain statistical features** are computed per recording (8 features × 5 channels):
+
+| Feature | Symbol | Description |
+|---------|--------|-------------|
+| Mean | `mean_i` | Average amplitude per channel |
+| Std Dev | `std_i` | Signal variability |
+| Max / Min | `max_i`, `min_i` | Signal extrema |
+| RMS | `rms_i` | Root mean square amplitude |
+| Peak-to-Peak | `p2p_i` | Max − Min amplitude |
+| Energy | `energy_i` | Sum of squared samples |
+| Zero-Crossing Rate | `zcr_i` | Frequency of sign changes |
+
+Frequency-domain analysis (Welch PSD, spectrograms) is performed for EDA but not used as ML input features.
+
+### 2. Preprocessing
+
+- `StandardScaler` normalization on all features
+- `LabelEncoder` for categorical variables (`exercise`, `set_type`, load classes)
+- Train/test split: **75% / 25%**, stratified, `random_state=42`
+
+### 3. Models Evaluated
+
+#### Supervised Classification (5 Models)
+
+| Model | Key Hyperparameters |
+|-------|---------------------|
+| Logistic Regression | `max_iter=1000` |
+| K-Nearest Neighbors | `n_neighbors=5` |
+| Support Vector Machine | `kernel='rbf'` |
+| Random Forest | `n_estimators=150`, `max_depth=10` |
+| XGBoost | `n_estimators=150`, `max_depth=6` |
+
+#### Unsupervised Clustering (5 Models)
+
+| Model | Configuration |
+|-------|---------------|
+| K-Means | `n_clusters=3` |
+| Agglomerative Clustering | `n_clusters=3` |
+| DBSCAN | `eps=1.5`, `min_samples=5` |
+| Gaussian Mixture Model | `n_components=3` |
+| Birch | `n_clusters=3` |
+
+#### Regression (5 Models + MLP)
+
+| Model | Key Hyperparameters |
+|-------|---------------------|
+| Linear Regression | — |
+| Support Vector Regression | `kernel='rbf'` |
+| Random Forest Regressor | `n_estimators=150`, `max_depth=10` |
+| XGBoost Regressor | `n_estimators=150`, `max_depth=6` |
+| MLP Regressor | `(128, 64, 32)`, ReLU, Adam, early stopping |
+
+#### Deep Learning
+
+| Model | Architecture | Task |
+|-------|-------------|------|
+| MLPClassifier | `(128, 64, 32)` | Load classification |
+| MLPRegressor | `(128, 64, 32)` | Continuous load estimation |
+
+---
+
+## Results
+
+### Best Model Performance
+
+| Task | Best Model | Score |
+|------|-----------|-------|
+| **Classification** | Random Forest | **83.33% Accuracy** |
+| **Regression** | XGBoost | **R² = 0.931** |
+| **Regression (RMSE)** | XGBoost | **245.4 g** |
+| **Deep Learning (Clf)** | MLP | 60.0% Accuracy |
+| **Deep Learning (Reg)** | MLP | R² = 0.589 |
+| **Unsupervised (ARI)** | Gaussian Mixture | 0.122 |
+
+### Full Classification Results
+
+| Model | Accuracy |
+|-------|----------|
+| Random Forest | **83.3%** |
+| Logistic Regression | 80.0% |
+| XGBoost | 80.0% |
+| SVM (RBF) | 66.7% |
+| KNN (k=5) | 63.3% |
+
+### Full Regression Results
+
+| Model | R² | RMSE (g) |
+|-------|-----|----------|
+| XGBoost | **0.931** | **245.4** |
+| Random Forest | 0.922 | 262.1 |
+| Linear Regression | 0.879 | 325.2 |
+| MLP Regressor | 0.589 | 599.8 |
+| SVR (RBF) | −0.051 | 959.5 |
+
+### Key Findings
+
+- **Strong load–amplitude correlation:** Pearson *r* = **0.886** between `mean_4` and applied load
+- **Spectral shift with load:** Mean frequency increases from ~7 Hz (0 g) to ~43 Hz (2270 g), indicating higher motor unit recruitment
+- **Subject variability:** Significant inter-subject differences — normalization recommended for cross-subject generalization
+- **Supervised > Unsupervised:** Clustering ARI < 0.3 confirms load classes are not naturally separable without labels
+- **Tree-based models win:** Random Forest and XGBoost outperform neural networks on this small, structured dataset
+
+### Generated Figures
+
+The notebook produces 9 publication-quality figures (600 DPI), saved in the [`results/`](results/) directory:
+
+| Figure | Description |
+|--------|-------------|
+| [`data_distribution.jpg`](results/data_distribution.jpg) | Load & exercise distribution |
+| [`eda_signal_waveforms.jpg`](results/eda_signal_waveforms.jpg) | Time-domain EMG waveforms |
+| [`eda_correlation.jpg`](results/eda_correlation.jpg) | Feature–load correlation heatmap |
+| [`eda_frequency_analysis.jpg`](results/eda_frequency_analysis.jpg) | PSD & spectrogram analysis |
+| [`eda_mean_freq_boxplot.jpg`](results/eda_mean_freq_boxplot.jpg) | Mean frequency vs. load |
+| [`supervised_5models.jpg`](results/supervised_5models.jpg) | Confusion matrices & accuracy bar chart |
+| [`unsupervised_5models.jpg`](results/unsupervised_5models.jpg) | PCA scatter & ARI comparison |
+| [`deeplearning_regression.jpg`](results/deeplearning_regression.jpg) | MLP & regression results |
+| [`final_summary.jpg`](results/final_summary.jpg) | Complete results dashboard |
+
+<p align="center">
+  <img src="results/final_summary.jpg" alt="Final Summary Dashboard" width="90%">
+  <br><em>Final results dashboard — classification, regression, and key insights</em>
+</p>
+
+---
+
+## Installation
+
+### Prerequisites
+
+- Python 3.8 or higher
+- pip package manager
+
+### Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/waqi786/sEMG_Load_Estimation.git
+cd sEMG_Load_Estimation
+
+# Create a virtual environment (recommended)
+python -m venv venv
+source venv/bin/activate        # Linux / macOS
+# venv\Scripts\activate         # Windows
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+---
+
+## Usage
+
+### Option 1 — Python Script (Quick Run)
+
+```bash
+python src/analysis.py
+```
+
+This will automatically:
+1. Download the EMG Elbow Dataset from Zenodo (~133 MB)
+2. Extract 40 time-domain features from all recordings
+3. Train and evaluate all classification, regression, and clustering models
+4. Print performance metrics to the console
+
+### Option 2 — Jupyter Notebook (Full Analysis with Plots)
+
+```bash
+jupyter notebook notebooks/semg-joint-torque-estimation.ipynb
+```
+
+The notebook includes the complete pipeline with all visualizations, EDA, and the full 9-figure output suite.
+
+---
+
+## Repository Structure
+
+```
+sEMG_Load_Estimation/
+│
+├── assets/
+│   └── banner.png                          # Repository header banner
+│
+├── notebooks/
+│   └── semg-joint-torque-estimation.ipynb  # Full analysis notebook (EDA + plots)
+│
+├── src/
+│   └── analysis.py                         # Standalone ML pipeline script
+│
+├── results/                                # Generated analysis figures (600 DPI)
+├── data/                                   # Auto-downloaded dataset (gitignored)
+│
+├── .gitignore                              # Python, data, and IDE ignores
+├── LICENSE                                 # MIT License
+├── README.md                               # Project documentation
+└── requirements.txt                        # Python dependencies
+```
+
+---
+
+## Dependencies
+
+```
+numpy>=1.21.0
+pandas>=1.3.0
+matplotlib>=3.4.0
+seaborn>=0.11.0
+scikit-learn>=1.0.0
+scipy>=1.7.0
+xgboost>=1.5.0
+requests>=2.25.0
+jupyter>=1.0.0
+```
+
+---
+
+## Future Work
+
+- [ ] Apply trained models to **stroke** and **SCI patient data** (on-site at University of Tsukuba)
+- [ ] Integrate **time-frequency features** (Wavelet Transform, STFT)
+- [ ] Develop a **real-time inference module** for rehabilitation robotics
+- [ ] Cross-subject normalization and transfer learning
+- [ ] Expand dataset with additional patient populations
+
+---
+
+## Acknowledgments
+
+- **Prof. Yoshiori Fujii**, University of Tsukuba — for supervision and research guidance
+- **[Zenodo](https://zenodo.org)** — for hosting the open EMG Elbow Dataset
+- **EMG Elbow Dataset authors** — for making the data publicly available
+
+---
+
+## License
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+
+---
+
+<div align="center">
+
+**University of Tsukuba · Stroke Rehabilitation Research · 2026**
+
+If you find this work useful, please ⭐ star the repository!
+
+</div>
