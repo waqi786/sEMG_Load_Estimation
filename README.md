@@ -178,11 +178,6 @@ The notebook produces 9 publication-quality figures (600 DPI), saved in the [`re
 | [`deeplearning_regression.jpg`](results/deeplearning_regression.jpg) | MLP & regression results |
 | [`final_summary.jpg`](results/final_summary.jpg) | Complete results dashboard |
 
-<p align="center">
-  <img src="results/final_summary.jpg" alt="Final Summary Dashboard" width="90%">
-  <br><em>Final results dashboard — classification, regression, and key insights</em>
-</p>
-
 ---
 
 ## Installation
