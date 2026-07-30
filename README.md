@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/banner.png" alt="sEMG-based Joint Torque & Load Estimation" width="100%">
+<img src="assets/banner.png">
 
 <br><br>
 
