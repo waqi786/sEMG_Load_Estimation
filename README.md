@@ -235,4 +235,3 @@ sEMG_Load_Estimation/
 <div align="center">
   <img src="assets/last.png">
 </div>
-```
