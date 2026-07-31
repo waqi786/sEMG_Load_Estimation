@@ -5,7 +5,6 @@ Complete machine learning pipeline for estimating joint load from surface
 Electromyography (sEMG) signals using the EMG Elbow Dataset (Zenodo 7946782).
 
 Author: Waqar Ali
-Supervisor: Prof. Yoshiori Fujii, University of Tsukuba
 """
 
 import glob
