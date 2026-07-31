@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/banner.png" alt="sEMG-based Joint Torque & Load Estimation" width="100%">
+<img src="assets/banner.png">
 
 <br><br>
 
@@ -8,7 +8,6 @@
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.0%2B-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
 [![XGBoost](https://img.shields.io/badge/XGBoost-1.5%2B-009639?style=for-the-badge&logo=xgboost&logoColor=white)](https://xgboost.readthedocs.io)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
-[![University of Tsukuba](https://img.shields.io/badge/University%20of%20Tsukuba-Research-8B0000?style=for-the-badge)](https://www.tsukuba.ac.jp/en/)
 
 **Estimating joint torque and external load from surface Electromyography (sEMG) signals using classical ML, deep learning, and unsupervised clustering.**
 
@@ -20,9 +19,9 @@
 
 ## Overview
 
-This repository implements a complete **machine learning pipeline** for estimating **joint torque / external load** from **surface Electromyography (sEMG)** signals. The project was developed under the supervision of **Prof. Yoshiori Fujii** at the **University of Tsukuba** as part of a research collaboration on **stroke rehabilitation** and **spinal cord injury (SCI) gait analysis**.
+This repository implements a complete **machine learning pipeline** for estimating **joint torque / external load** from **surface Electromyography (sEMG)** signals, with applications in stroke rehabilitation and SCI gait analysis.
 
-The pipeline covers the full research workflow:
+The pipeline covers the full workflow:
 
 | Stage | Description |
 |-------|-------------|
@@ -34,7 +33,7 @@ The pipeline covers the full research workflow:
 | **Deep Learning** | Multi-Layer Perceptron (MLP) for classification & regression |
 | **Regression** | 5 regressors for continuous load estimation in grams |
 
-> **Author:** Waqar Ali · **Supervisor:** Prof. Yoshiori Fujii · **Institution:** University of Tsukuba · **Date:** July 2026
+> **Author:** Waqar Ali · **Date:** July 2026
 
 ---
 
@@ -179,11 +178,6 @@ The notebook produces 9 publication-quality figures (600 DPI), saved in the [`re
 | [`deeplearning_regression.jpg`](results/deeplearning_regression.jpg) | MLP & regression results |
 | [`final_summary.jpg`](results/final_summary.jpg) | Complete results dashboard |
 
-<p align="center">
-  <img src="results/final_summary.jpg" alt="Final Summary Dashboard" width="90%">
-  <br><em>Final results dashboard — classification, regression, and key insights</em>
-</p>
-
 ---
 
 ## Installation
@@ -211,99 +205,33 @@ pip install -r requirements.txt
 
 ---
 
-## Usage
-
-### Option 1 — Python Script (Quick Run)
-
-```bash
-python src/analysis.py
-```
-
-This will automatically:
-1. Download the EMG Elbow Dataset from Zenodo (~133 MB)
-2. Extract 40 time-domain features from all recordings
-3. Train and evaluate all classification, regression, and clustering models
-4. Print performance metrics to the console
-
-### Option 2 — Jupyter Notebook (Full Analysis with Plots)
-
-```bash
-jupyter notebook notebooks/semg-joint-torque-estimation.ipynb
-```
-
-The notebook includes the complete pipeline with all visualizations, EDA, and the full 9-figure output suite.
-
----
-
 ## Repository Structure
 
 ```
 sEMG_Load_Estimation/
-│
-├── assets/
-│   └── banner.png                          # Repository header banner
-│
-├── notebooks/
-│   └── semg-joint-torque-estimation.ipynb  # Full analysis notebook (EDA + plots)
-│
-├── src/
-│   └── analysis.py                         # Standalone ML pipeline script
-│
-├── results/                                # Generated analysis figures (600 DPI)
-├── data/                                   # Auto-downloaded dataset (gitignored)
-│
-├── .gitignore                              # Python, data, and IDE ignores
-├── LICENSE                                 # MIT License
-├── README.md                               # Project documentation
-└── requirements.txt                        # Python dependencies
-```
-
----
-
-## Dependencies
-
-```
-numpy>=1.21.0
-pandas>=1.3.0
-matplotlib>=3.4.0
-seaborn>=0.11.0
-scikit-learn>=1.0.0
-scipy>=1.7.0
-xgboost>=1.5.0
-requests>=2.25.0
-jupyter>=1.0.0
+├── data/                       # Downloaded dataset (auto‑generated)
+├── notebooks/                  # Jupyter notebook with full analysis
+├── src/                        # Source code (if any)
+├── results/                    # Generated figures (9 images)
+├── assets/                     # Banner and thank-you image
+├── requirements.txt            # Python dependencies
+├── LICENSE                     # MIT License
+└── README.md                   # This file
 ```
 
 ---
 
 ## Future Work
 
-- [ ] Apply trained models to **stroke** and **SCI patient data** (on-site at University of Tsukuba)
-- [ ] Integrate **time-frequency features** (Wavelet Transform, STFT)
-- [ ] Develop a **real-time inference module** for rehabilitation robotics
-- [ ] Cross-subject normalization and transfer learning
-- [ ] Expand dataset with additional patient populations
+- **CNN / LSTM architectures** on raw time‑series to avoid manual feature engineering.
+- **Transfer learning** across subjects to improve generalisation.
+- **Real‑time deployment** on edge devices for wearable rehabilitation systems.
+- **Multi‑task learning** to jointly predict load and exercise type.
 
 ---
 
-## Acknowledgments
-
-- **Prof. Yoshiori Fujii**, University of Tsukuba — for supervision and research guidance
-- **[Zenodo](https://zenodo.org)** — for hosting the open EMG Elbow Dataset
-- **EMG Elbow Dataset authors** — for making the data publicly available
-
----
-
-## License
-
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
-
----
+## Thank You
 
 <div align="center">
-
-**University of Tsukuba · Stroke Rehabilitation Research · 2026**
-
-If you find this work useful, please ⭐ star the repository!
-
+  <img src="assets/last.png">
 </div>
