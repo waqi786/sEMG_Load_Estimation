@@ -272,6 +272,7 @@ sEMG_Load_Estimation/
 
 ## Future Work
 
+I think:
 - Collect a larger, multi-site dataset with more subjects to reduce variance in LOSO estimates.
 - Record real per-subject forearm length and elbow angle (e.g., via goniometer or motion capture) to compute genuine, validated joint torque instead of an assumption-based illustration.
 - Explore transfer learning / domain adaptation across subjects to improve CNN generalisation.
@@ -279,8 +280,6 @@ sEMG_Load_Estimation/
 - Real-time deployment on edge/wearable devices for rehabilitation monitoring.
 
 ---
-
-## Thank You
 
 <div align="center">
   <img src="assets/last.png">
