@@ -7,11 +7,12 @@
 [![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.0%2B-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
 [![XGBoost](https://img.shields.io/badge/XGBoost-1.5%2B-009639?style=for-the-badge&logo=xgboost&logoColor=white)](https://xgboost.readthedocs.io)
+[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white)](https://tensorflow.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 
-**Estimating joint torque and external load from surface Electromyography (sEMG) signals using classical ML, deep learning, and unsupervised clustering.**
+**Estimating external load (and an illustrative joint torque extension) from surface Electromyography (sEMG) signals using 60 engineered features, 10 classifiers, 11 regressors, an interpretable equation, a 1D CNN on raw signals, and subject-grouped / Leave-One-Subject-Out validation.**
 
-[Overview](#overview) · [Dataset](#dataset) · [Methodology](#methodology) · [Results](#results) · [Installation](#installation) · [Usage](#usage) · [Repository Structure](#repository-structure) · [Future Work](#future-work)
+[Overview](#overview) · [Dataset](#dataset) · [Methodology](#methodology) · [Results](#results) · [Installation](#installation) · [Usage](#usage) · [Repository Structure](#repository-structure) · [Honest Limitations](#honest-limitations) · [Future Work](#future-work)
 
 </div>
 
@@ -19,21 +20,30 @@
 
 ## Overview
 
-This repository implements a complete **machine learning pipeline** for estimating **joint torque / external load** from **surface Electromyography (sEMG)** signals, with applications in stroke rehabilitation and SCI gait analysis.
+This repository implements a complete, honestly-validated **machine learning pipeline** for estimating **external load** from **surface Electromyography (sEMG)** signals recorded at the elbow, with an additional illustrative section that converts predicted load into an assumption-based joint torque estimate.
 
-The pipeline covers the full workflow:
+The pipeline covers the full workflow end to end:
 
 | Stage | Description |
 |-------|-------------|
-| **Data Loading** | Automatic download of the open EMG Elbow Dataset from Zenodo |
-| **Preprocessing** | Time-domain statistical feature extraction from 5 EMG channels |
-| **EDA** | Waveform analysis, correlation heatmaps, PSD & spectrogram |
-| **Supervised ML** | 5 classifiers for discrete load classification |
-| **Unsupervised ML** | 5 clustering algorithms with ARI / Silhouette evaluation |
-| **Deep Learning** | Multi-Layer Perceptron (MLP) for classification & regression |
-| **Regression** | 5 regressors for continuous load estimation in grams |
+| **Data Loading** | Automatic download & extraction of the open EMG Elbow Dataset from Zenodo (10 subjects, 130 files) |
+| **Feature Engineering** | 60 statistical, shape, and frequency-domain features from 5 sEMG channels (12 features/channel) |
+| **EDA** | Raw waveform plots, histograms, correlation heatmaps, per-subject response curves |
+| **Frequency Analysis** | Welch PSD, spectrograms, median/mean frequency vs. load |
+| **Subject-Wise Split** | Train/test split by subject (never by row) to avoid identity leakage |
+| **Supervised Classification** | 10 classifiers for discrete load-level prediction |
+| **Supervised Regression** | 11 regressors for continuous load estimation (grams) |
+| **Interpretable Model** | Explicit polynomial equation linking features to load, full equation exported to CSV |
+| **Torque Illustration** | Assumption-based load-to-torque conversion, clearly labeled as an estimate, not a measurement |
+| **Feature Importance** | Random Forest, XGBoost, Permutation, and SHAP importances compared |
+| **Unsupervised Clustering** | 8 clustering algorithms evaluated with ARI / Silhouette / Homogeneity |
+| **Learning Curves** | Subject-grouped (`GroupKFold`) overfitting/underfitting diagnostics |
+| **Cross-Validation** | Subject-grouped cross-validation for 6 regressors |
+| **Leave-One-Subject-Out (LOSO)** | Every one of the 10 subjects used as the held-out test subject exactly once |
+| **Deep Learning (MLP)** | Architecture search over 5 MLP configurations for classification & regression |
+| **Deep Sequence Model (1D CNN)** | CNN trained directly on raw 5-channel sEMG windows, with subject-disjoint fit/validation/test sets |
 
-> **Author:** Waqar Ali · **Date:** July 2026
+> **Author:** Waqar Ali
 
 ---
 
@@ -43,140 +53,140 @@ We use the **[EMG Elbow Dataset](https://zenodo.org/record/7946782/files/EMG%20e
 
 | Property | Value |
 |----------|-------|
-| **Subjects** | 10 healthy adults (6 male, 4 female) |
+| **Subjects** | 10 (real subjects only — no synthetic or duplicated data) |
 | **EMG Channels** | 5 per recording |
 | **Sampling Rate** | 2000 Hz |
 | **Load Conditions** | 0 g · 1360 g · 2270 g |
 | **Exercises** | Flexion–Extension (`flex`) · Pronation–Supination (`pronsup`) |
-| **Total Recordings** | 120 signal files (balanced across all conditions) |
+| **Total Recordings** | 130 raw text files across all subjects/conditions |
 | **File Format** | `{subj}_{exercise}_{set_type}_{load}.txt` |
-| **Target Variable** | Load (grams) — proxy for joint torque / force |
+| **Target Variable** | Load (grams) — the only ground-truth label the dataset provides |
 
-The dataset is **automatically downloaded** when you run the analysis script or notebook — no manual setup required.
+The dataset is **automatically downloaded and extracted** at the start of the notebook — no manual setup required.
+
+> Every split, score, and plot in this project is computed from these same 10 real subjects. This is a property of the public source data, not a design choice — using more subjects would require a larger dataset (see [Future Work](#future-work)).
 
 ---
 
 ## Methodology
 
-### 1. Feature Extraction
+### 1. Feature Engineering (60 Features)
 
-**40 time-domain statistical features** are computed per recording (8 features × 5 channels):
+**12 features per channel × 5 channels = 60 total engineered features:**
 
-| Feature | Symbol | Description |
-|---------|--------|-------------|
-| Mean | `mean_i` | Average amplitude per channel |
-| Std Dev | `std_i` | Signal variability |
-| Max / Min | `max_i`, `min_i` | Signal extrema |
-| RMS | `rms_i` | Root mean square amplitude |
-| Peak-to-Peak | `p2p_i` | Max − Min amplitude |
-| Energy | `energy_i` | Sum of squared samples |
-| Zero-Crossing Rate | `zcr_i` | Frequency of sign changes |
+| Feature | Description |
+|---------|-------------|
+| `mean_i` | Average amplitude |
+| `std_i` | Signal variability |
+| `max_i` / `min_i` | Signal extrema |
+| `rms_i` | Root mean square amplitude |
+| `p2p_i` | Peak-to-peak amplitude (max − min) |
+| `energy_i` | Sum of squared samples |
+| `zcr_i` | Zero-crossing rate |
+| `skew_i` | Distribution skewness |
+| `kurt_i` | Distribution kurtosis |
+| `meanfreq_i` | Power-weighted mean frequency (Welch PSD) |
+| `peakfreq_i` | Dominant frequency (Welch PSD) |
 
-Frequency-domain analysis (Welch PSD, spectrograms) is performed for EDA but not used as ML input features.
+Two encoded metadata columns (`exercise`, `set_type`) are appended, giving **62 total model input columns**.
 
-### 2. Preprocessing
+### 2. Preprocessing & Splitting
 
-- `StandardScaler` normalization on all features
+- `StandardScaler` normalization fit on train only, applied to test
 - `LabelEncoder` for categorical variables (`exercise`, `set_type`, load classes)
-- Train/test split: **75% / 25%**, stratified, `random_state=42`
+- **Subject-wise train/test split** (75% / 25% of subjects, `random_state=42`) — a subject's recordings never appear on both sides
+- All cross-validation uses `GroupKFold` / `LeaveOneGroupOut`, grouped by subject, so no fold ever mixes one subject's data between train and validation
 
 ### 3. Models Evaluated
 
-#### Supervised Classification (5 Models)
+#### Supervised Classification (10 Models)
+Logistic Regression · KNN (k=5) · KNN (k=7) · SVM (RBF) · SVM (Linear) · Decision Tree · Random Forest · Gradient Boosting · AdaBoost · XGBoost
 
-| Model | Key Hyperparameters |
-|-------|---------------------|
-| Logistic Regression | `max_iter=1000` |
-| K-Nearest Neighbors | `n_neighbors=5` |
-| Support Vector Machine | `kernel='rbf'` |
-| Random Forest | `n_estimators=150`, `max_depth=10` |
-| XGBoost | `n_estimators=150`, `max_depth=6` |
+#### Supervised Regression (11 Models)
+Linear · Ridge · Lasso · ElasticNet · Bayesian Ridge · SVR (RBF) · SVR (Linear) · Decision Tree · Random Forest · Gradient Boosting · XGBoost
 
-#### Unsupervised Clustering (5 Models)
+#### Interpretable Model
+Polynomial `LinearRegression` (degree 1–3 searched), full coefficient table exported so the load equation can be read term-by-term rather than hidden in a black box.
 
-| Model | Configuration |
-|-------|---------------|
-| K-Means | `n_clusters=3` |
-| Agglomerative Clustering | `n_clusters=3` |
-| DBSCAN | `eps=1.5`, `min_samples=5` |
-| Gaussian Mixture Model | `n_components=3` |
-| Birch | `n_clusters=3` |
-
-#### Regression (5 Models + MLP)
-
-| Model | Key Hyperparameters |
-|-------|---------------------|
-| Linear Regression | — |
-| Support Vector Regression | `kernel='rbf'` |
-| Random Forest Regressor | `n_estimators=150`, `max_depth=10` |
-| XGBoost Regressor | `n_estimators=150`, `max_depth=6` |
-| MLP Regressor | `(128, 64, 32)`, ReLU, Adam, early stopping |
+#### Unsupervised Clustering (8 Models)
+KMeans (k=3) · KMeans (k=4) · Agglomerative · Gaussian Mixture · DBSCAN · OPTICS · Birch · MeanShift
 
 #### Deep Learning
+- **MLP architecture search** — 5 hidden-layer configurations, for both classification and regression, on the 62 engineered features
+- **1D CNN** — trained directly on raw, per-channel-normalized 4000-sample (2s) windows of all 5 sEMG channels, with early stopping on a subject-disjoint validation set and a fully held-out subject-disjoint test set
 
-| Model | Architecture | Task |
-|-------|-------------|------|
-| MLPClassifier | `(128, 64, 32)` | Load classification |
-| MLPRegressor | `(128, 64, 32)` | Continuous load estimation |
+### 4. Validation Strategy
+
+- **Single subject-wise split** — quick, fair estimate but sensitive to which 3 subjects land in test
+- **Subject-grouped cross-validation** (`GroupKFold`) — used for learning curves and 6-model CV comparison
+- **Leave-One-Subject-Out (LOSO)** — the most robust estimate: every one of the 10 subjects is held out and tested exactly once, then results are averaged
 
 ---
 
 ## Results
 
-### Best Model Performance
+All figures are generated at 600 DPI and saved to [`results/`](results/). Numbers below come directly from the notebook run bundled with this repository (no numbers are invented).
+
+### Best Model Performance (Single Subject-Wise Split)
 
 | Task | Best Model | Score |
 |------|-----------|-------|
-| **Classification** | Random Forest | **83.33% Accuracy** |
-| **Regression** | XGBoost | **R² = 0.931** |
-| **Regression (RMSE)** | XGBoost | **245.4 g** |
-| **Deep Learning (Clf)** | MLP | 60.0% Accuracy |
-| **Deep Learning (Reg)** | MLP | R² = 0.589 |
-| **Unsupervised (ARI)** | Gaussian Mixture | 0.122 |
+| **Classification** | AdaBoost | **100.0% Accuracy** |
+| **Regression** | Random Forest | **R² = 0.959**, RMSE = 187.9 g |
+| **Interpretable Equation** | Linear (degree 1) | R² = 0.870 |
+| **Approximate Torque (illustrative)** | Linear | R² = 0.870, RMSE = 0.988 Nm |
+| **Unsupervised (best ARI)** | Gaussian Mixture | ARI = 0.114 |
+| **MLP (Deep Learning, features)** | (256,128,64) clf / (128,64,32) reg | Acc = 0.750 / R² = 0.893 |
+| **1D CNN (raw signal, unseen subjects)** | — | Test Accuracy = 0.611 |
 
-### Full Classification Results
+### Leave-One-Subject-Out (LOSO) — Most Trustworthy Estimate
 
-| Model | Accuracy |
-|-------|----------|
-| Random Forest | **83.3%** |
-| Logistic Regression | 80.0% |
-| XGBoost | 80.0% |
-| SVM (RBF) | 66.7% |
-| KNN (k=5) | 63.3% |
+| Task | Mean ± Std (across all 10 subjects) |
+|------|--------------------------------------|
+| **Classification Accuracy** | 0.867 ± 0.140 |
+| **Regression R²** | 0.886 ± 0.121 |
+| **Regression RMSE** | 276.1 g |
 
-### Full Regression Results
-
-| Model | R² | RMSE (g) |
-|-------|-----|----------|
-| XGBoost | **0.931** | **245.4** |
-| Random Forest | 0.922 | 262.1 |
-| Linear Regression | 0.879 | 325.2 |
-| MLP Regressor | 0.589 | 599.8 |
-| SVR (RBF) | −0.051 | 959.5 |
+> The single-split accuracy (100%) is noticeably higher than the LOSO average (86.7%), which means the single split was optimistic. **LOSO is the number that should be quoted for real-world generalisation**, since it uses every subject as the test subject exactly once instead of depending on one lucky/unlucky split of 3 subjects.
 
 ### Key Findings
 
-- **Strong load–amplitude correlation:** Pearson *r* = **0.886** between `mean_4` and applied load
-- **Spectral shift with load:** Mean frequency increases from ~7 Hz (0 g) to ~43 Hz (2270 g), indicating higher motor unit recruitment
-- **Subject variability:** Significant inter-subject differences — normalization recommended for cross-subject generalization
-- **Supervised > Unsupervised:** Clustering ARI < 0.3 confirms load classes are not naturally separable without labels
-- **Tree-based models win:** Random Forest and XGBoost outperform neural networks on this small, structured dataset
+- **EMG amplitude and mean frequency both increase with load** — confirming sEMG amplitude and spectral content both encode applied force.
+- **Tree-based ensembles win** — AdaBoost, Random Forest, and XGBoost outperform linear models and simple neural networks on the 62 engineered features.
+- **Subject-wise splitting matters** — subject-grouped CV and LOSO both give more conservative, trustworthy scores than plain row-wise splitting.
+- **Clustering fails without labels** — best unsupervised ARI is only 0.114, confirming load classes overlap heavily in feature space and supervised learning is the right approach here.
+- **The interpretable linear equation** achieves R² = 0.870 with a fully transparent, exportable set of coefficients — a usable trade-off between accuracy and explainability.
+- **The torque numbers are illustrative only** — they use an assumed forearm length (0.30 m) and elbow angle (90°), not measured per-subject values, and are explicitly labeled as such rather than presented as validated joint torque.
+- **Feature importance techniques agree** — Random Forest, XGBoost, Permutation Importance, and SHAP all converge on similar informative channels/statistics (notably channel-2 energy).
+- **No major overfitting** — subject-grouped learning curves and CNN training curves both show training and validation scores staying reasonably close.
+- **Deep learning underperforms tree-based models** on this dataset size — expected, since MLPs and CNNs typically need far more samples than the few hundred available here.
 
-### Generated Figures
+### Generated Figures & Files
 
-The notebook produces 9 publication-quality figures (600 DPI), saved in the [`results/`](results/) directory:
+All outputs saved in [`results/`](results/):
 
-| Figure | Description |
-|--------|-------------|
-| [`data_distribution.jpg`](results/data_distribution.jpg) | Load & exercise distribution |
-| [`eda_signal_waveforms.jpg`](results/eda_signal_waveforms.jpg) | Time-domain EMG waveforms |
-| [`eda_correlation.jpg`](results/eda_correlation.jpg) | Feature–load correlation heatmap |
-| [`eda_frequency_analysis.jpg`](results/eda_frequency_analysis.jpg) | PSD & spectrogram analysis |
-| [`eda_mean_freq_boxplot.jpg`](results/eda_mean_freq_boxplot.jpg) | Mean frequency vs. load |
-| [`supervised_5models.jpg`](results/supervised_5models.jpg) | Confusion matrices & accuracy bar chart |
-| [`unsupervised_5models.jpg`](results/unsupervised_5models.jpg) | PCA scatter & ARI comparison |
-| [`deeplearning_regression.jpg`](results/deeplearning_regression.jpg) | MLP & regression results |
-| [`final_summary.jpg`](results/final_summary.jpg) | Complete results dashboard |
+| File | Description |
+|------|-------------|
+| [`data_distribution.jpg`](results/data_distribution.jpg) | Load / exercise / train-test distribution |
+| [`eda_signal_waveforms.jpg`](results/eda_signal_waveforms.jpg) | Raw EMG waveforms, zoom, histograms per load |
+| [`eda_correlation.jpg`](results/eda_correlation.jpg) | Feature correlation heatmap, per-subject/exercise analysis |
+| [`per_subject_analysis.jpg`](results/per_subject_analysis.jpg) | Per-subject response to load (channel 3 mean) |
+| [`eda_frequency_analysis.jpg`](results/eda_frequency_analysis.jpg) | Welch PSD, spectral features, spectrograms |
+| [`eda_mean_freq_boxplot.jpg`](results/eda_mean_freq_boxplot.jpg) | Mean frequency distribution vs. load |
+| [`supervised_10models.jpg`](results/supervised_10models.jpg) | Confusion matrix + 10-classifier comparison |
+| [`regression_11models.jpg`](results/regression_11models.jpg) | True vs predicted scatter + 11-regressor R² comparison |
+| [`interpretable_model_equation.jpg`](results/interpretable_model_equation.jpg) | Top coefficients of the interpretable equation |
+| [`interpretable_equation_full.csv`](results/interpretable_equation_full.csv) | **Full equation** — every term & the intercept |
+| [`approx_torque_model.jpg`](results/approx_torque_model.jpg) | Approximate torque: true vs predicted (illustrative) |
+| [`feature_importance.jpg`](results/feature_importance.jpg) | RF / XGBoost / Permutation / SHAP importance panels |
+| [`feature_importance.csv`](results/feature_importance.csv) | Full feature importance table, all 4 methods + average |
+| [`unsupervised_8models.jpg`](results/unsupervised_8models.jpg) | PCA scatter + ARI for 8 clustering algorithms |
+| [`learning_curve_XGBoost.jpg`](results/learning_curve_XGBoost.jpg) | Subject-grouped learning curve — XGBoost |
+| [`learning_curve_Random_Forest.jpg`](results/learning_curve_Random_Forest.jpg) | Subject-grouped learning curve — Random Forest |
+| [`cross_validation.jpg`](results/cross_validation.jpg) | Subject-grouped CV R² across 6 regressors |
+| [`loso_validation.jpg`](results/loso_validation.jpg) | LOSO accuracy & R² per held-out subject |
+| [`cnn_training_curves.jpg`](results/cnn_training_curves.jpg) | CNN training/validation loss & accuracy curves |
+| [`cnn_confusion_matrix.jpg`](results/cnn_confusion_matrix.jpg) | CNN confusion matrix on unseen test subjects |
 
 ---
 
@@ -205,28 +215,49 @@ pip install -r requirements.txt
 
 ---
 
+## Usage
+
+Open and run the notebook top to bottom:
+
+```bash
+jupyter notebook notebooks/semg-joint-torque-estimation.ipynb
+```
+
+The notebook automatically downloads the dataset, engineers features, trains all models, runs every validation scheme, and regenerates every figure in `results/`.
+
+---
+
 ## Repository Structure
 
 ```
 sEMG_Load_Estimation/
-├── data/                       # Downloaded dataset (auto‑generated)
-├── notebooks/                  # Jupyter notebook with full analysis
-├── src/                        # Source code (if any)
-├── results/                    # Generated figures (9 images)
-├── assets/                     # Banner and thank-you image
-├── requirements.txt            # Python dependencies
-├── LICENSE                     # MIT License
-└── README.md                   # This file
+├── notebooks/
+│   └── semg-joint-torque-estimation.ipynb   # Full end-to-end analysis notebook
+├── results/                                  # All generated figures & exported tables
+├── assets/                                   # Banner and closing image
+├── requirements.txt                          # Python dependencies
+├── LICENSE                                   # MIT License
+└── README.md                                 # This file
 ```
+
+---
+
+## Honest Limitations
+
+- **Only 10 subjects** — a property of the public dataset, not a choice made here. No subjects are invented or duplicated.
+- **Torque is illustrative, not measured** — real per-subject forearm length and elbow angle were not recorded in this dataset, so the torque section uses stated, fixed assumptions (0.30 m moment arm, 90° elbow angle) purely to demonstrate the load-to-torque conversion. It should not be treated as a validated biomechanical torque measurement.
+- **Small-sample deep learning** — both the MLP and CNN are working with only a few hundred samples/windows, so their scores are noisier and generally behind the tree-based models trained on engineered features.
+- **Single-split scores can be optimistic** — always prefer the LOSO numbers when judging real-world generalisation.
 
 ---
 
 ## Future Work
 
-- **CNN / LSTM architectures** on raw time‑series to avoid manual feature engineering.
-- **Transfer learning** across subjects to improve generalisation.
-- **Real‑time deployment** on edge devices for wearable rehabilitation systems.
-- **Multi‑task learning** to jointly predict load and exercise type.
+- Collect a larger, multi-site dataset with more subjects to reduce variance in LOSO estimates.
+- Record real per-subject forearm length and elbow angle (e.g., via goniometer or motion capture) to compute genuine, validated joint torque instead of an assumption-based illustration.
+- Explore transfer learning / domain adaptation across subjects to improve CNN generalisation.
+- Extend the CNN to a CNN-LSTM or Transformer-based sequence model for raw sEMG.
+- Real-time deployment on edge/wearable devices for rehabilitation monitoring.
 
 ---
 
