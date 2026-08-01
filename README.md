@@ -125,7 +125,7 @@ KMeans (k=3) · KMeans (k=4) · Agglomerative · Gaussian Mixture · DBSCAN · O
 
 ## Results
 
-All figures are generated at 600 DPI and saved to [`results/`](results/). Numbers below come directly from the notebook run bundled with this repository (no numbers are invented).
+All figures are generated at 600 DPI and organized in [`results/`](results/) by category. Numbers below come directly from the notebook run bundled with this repository (no numbers are invented).
 
 ### Best Model Performance (Single Subject-Wise Split)
 
@@ -161,32 +161,46 @@ All figures are generated at 600 DPI and saved to [`results/`](results/). Number
 - **No major overfitting** — subject-grouped learning curves and CNN training curves both show training and validation scores staying reasonably close.
 - **Deep learning underperforms tree-based models** on this dataset size — expected, since MLPs and CNNs typically need far more samples than the few hundred available here.
 
-### Generated Figures & Files
+### Results Folder Layout
 
-All outputs saved in [`results/`](results/):
+Outputs are grouped into clearly named subfolders so nothing is confusing to navigate:
 
-| File | Description |
-|------|-------------|
-| [`data_distribution.jpg`](results/data_distribution.jpg) | Load / exercise / train-test distribution |
-| [`eda_signal_waveforms.jpg`](results/eda_signal_waveforms.jpg) | Raw EMG waveforms, zoom, histograms per load |
-| [`eda_correlation.jpg`](results/eda_correlation.jpg) | Feature correlation heatmap, per-subject/exercise analysis |
-| [`per_subject_analysis.jpg`](results/per_subject_analysis.jpg) | Per-subject response to load (channel 3 mean) |
-| [`eda_frequency_analysis.jpg`](results/eda_frequency_analysis.jpg) | Welch PSD, spectral features, spectrograms |
-| [`eda_mean_freq_boxplot.jpg`](results/eda_mean_freq_boxplot.jpg) | Mean frequency distribution vs. load |
-| [`supervised_10models.jpg`](results/supervised_10models.jpg) | Confusion matrix + 10-classifier comparison |
-| [`regression_11models.jpg`](results/regression_11models.jpg) | True vs predicted scatter + 11-regressor R² comparison |
-| [`interpretable_model_equation.jpg`](results/interpretable_model_equation.jpg) | Top coefficients of the interpretable equation |
-| [`interpretable_equation_full.csv`](results/interpretable_equation_full.csv) | **Full equation** — every term & the intercept |
-| [`approx_torque_model.jpg`](results/approx_torque_model.jpg) | Approximate torque: true vs predicted (illustrative) |
-| [`feature_importance.jpg`](results/feature_importance.jpg) | RF / XGBoost / Permutation / SHAP importance panels |
-| [`feature_importance.csv`](results/feature_importance.csv) | Full feature importance table, all 4 methods + average |
-| [`unsupervised_8models.jpg`](results/unsupervised_8models.jpg) | PCA scatter + ARI for 8 clustering algorithms |
-| [`learning_curve_XGBoost.jpg`](results/learning_curve_XGBoost.jpg) | Subject-grouped learning curve — XGBoost |
-| [`learning_curve_Random_Forest.jpg`](results/learning_curve_Random_Forest.jpg) | Subject-grouped learning curve — Random Forest |
-| [`cross_validation.jpg`](results/cross_validation.jpg) | Subject-grouped CV R² across 6 regressors |
-| [`loso_validation.jpg`](results/loso_validation.jpg) | LOSO accuracy & R² per held-out subject |
-| [`cnn_training_curves.jpg`](results/cnn_training_curves.jpg) | CNN training/validation loss & accuracy curves |
-| [`cnn_confusion_matrix.jpg`](results/cnn_confusion_matrix.jpg) | CNN confusion matrix on unseen test subjects |
+```
+results/
+├── eda/                 # Exploratory data analysis figures
+│   ├── data_distribution.jpg
+│   ├── eda_signal_waveforms.jpg
+│   ├── eda_correlation.jpg
+│   ├── per_subject_analysis.jpg
+│   ├── eda_frequency_analysis.jpg
+│   └── eda_mean_freq_boxplot.jpg
+├── models/               # Classification, regression, interpretability & clustering figures
+│   ├── supervised_10models.jpg
+│   ├── regression_11models.jpg
+│   ├── interpretable_model_equation.jpg
+│   ├── approx_torque_model.jpg
+│   ├── feature_importance.jpg
+│   └── unsupervised_8models.jpg
+├── validation/           # Overfitting checks & generalisation validation
+│   ├── learning_curve_XGBoost.jpg
+│   ├── learning_curve_Random_Forest.jpg
+│   ├── cross_validation.jpg
+│   └── loso_validation.jpg
+├── deep_learning/        # Raw-signal 1D CNN results
+│   ├── cnn_training_curves.jpg
+│   └── cnn_confusion_matrix.jpg
+└── tables/               # Exported numeric results
+    ├── feature_importance.csv
+    └── interpretable_equation_full.csv
+```
+
+| Folder | Contents |
+|--------|----------|
+| [`results/eda/`](results/eda/) | Raw waveform plots, histograms, correlation heatmaps, per-subject curves, PSD & spectrogram figures |
+| [`results/models/`](results/models/) | Classifier & regressor comparisons, interpretable equation plot, torque illustration, feature importance, clustering |
+| [`results/validation/`](results/validation/) | Subject-grouped learning curves, subject-grouped cross-validation, LOSO validation |
+| [`results/deep_learning/`](results/deep_learning/) | 1D CNN training curves and confusion matrix on unseen test subjects |
+| [`results/tables/`](results/tables/) | Full feature-importance table and full interpretable-equation coefficient table (CSV) |
 
 ---
 
@@ -233,11 +247,16 @@ The notebook automatically downloads the dataset, engineers features, trains all
 sEMG_Load_Estimation/
 ├── notebooks/
 │   └── semg-joint-torque-estimation.ipynb   # Full end-to-end analysis notebook
-├── results/                                  # All generated figures & exported tables
-├── assets/                                   # Banner and closing image
-├── requirements.txt                          # Python dependencies
-├── LICENSE                                   # MIT License
-└── README.md                                 # This file
+├── results/
+│   ├── eda/                                  # Exploratory data analysis figures
+│   ├── models/                                # Classification / regression / interpretability / clustering figures
+│   ├── validation/                            # Learning curves, cross-validation, LOSO
+│   ├── deep_learning/                         # 1D CNN training curves & confusion matrix
+│   └── tables/                                # Exported CSV result tables
+├── assets/                                    # Banner and closing image
+├── requirements.txt                           # Python dependencies
+├── LICENSE                                    # MIT License
+└── README.md                                  # This file
 ```
 
 ---
