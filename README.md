@@ -305,8 +305,6 @@ sEMG_Load_Estimation/
 
 ---
 
-## Thank You
-
 <div align="center">
   <img src="assets/last.png">
 </div>
