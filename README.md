@@ -10,7 +10,7 @@
 [![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white)](https://tensorflow.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 
-**Estimating external load, joint torque (from each subject's real arm length and recorded joint angle), and a physiologically-grounded Hill-type EMG-to-force model, from surface Electromyography (sEMG) signals using 37 model input features, 10 classifiers, 11 regressors, an interpretable equation, a 1D CNN on raw signals, and subject-grouped / Leave-One-Subject-Out validation.**
+**Estimating external load, joint torque (from each subject's real arm length and recorded joint angle), and a physiologically-grounded Hill-type EMG-to-force model, from surface Electromyography (sEMG) signals using 37 model input features, 10 classifiers, 11 regressors, an interpretable equation, a 1D CNN on raw signals, and subject-grouped / Leave-One-Subject-Out validation**
 
 [Overview](#overview) · [Dataset](#dataset) · [Methodology](#methodology) · [Results](#results) · [Installation](#installation) · [Usage](#usage) · [Repository Structure](#repository-structure) · [Honest Limitations](#honest-limitations) · [Future Work](#future-work)
 
