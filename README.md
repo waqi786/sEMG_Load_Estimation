@@ -10,7 +10,7 @@
 [![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white)](https://tensorflow.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 
-**Estimating external load, joint torque (from each subject's real arm length and recorded joint angle), and a physiologically-grounded Hill-type EMG-to-force model, from surface Electromyography (sEMG) signals using 37 model input features, 10 classifiers, 11 regressors, an interpretable equation, a 1D CNN on raw signals, and subject-grouped / Leave-One-Subject-Out validation**
+**Estimating external load, joint torque (from each subject's real arm length and recorded joint angle), joint stiffness (including a time-windowed, EMG(t) → Stiffness(t) formulation), and a physiologically-grounded Hill-type EMG-to-force model, from surface Electromyography (sEMG) signals using 37 model input features, 10 classifiers, 11 regressors, an interpretable equation, a 1D CNN on raw signals, subject-grouped / Leave-One-Subject-Out validation, and cross-dataset external validation**
 
 [Overview](#overview) · [Dataset](#dataset) · [Methodology](#methodology) · [Results](#results) · [Installation](#installation) · [Usage](#usage) · [Repository Structure](#repository-structure) · [Honest Limitations](#honest-limitations) · [Future Work](#future-work)
 
@@ -20,7 +20,7 @@
 
 ## Overview
 
-This repository implements a complete, honestly-validated **machine learning pipeline** for estimating **external load** from **surface Electromyography (sEMG)** signals recorded at the elbow, extended with a **real, per-subject joint torque estimate** (using each subject's own measured arm length and their own recorded joint angle) and a **physiologically-grounded Hill-type EMG-to-force model**, including a calibration-free variant validated with Leave-One-Subject-Out testing.
+This repository implements a complete, honestly-validated **machine learning pipeline** for estimating **external load** from **surface Electromyography (sEMG)** signals recorded at the elbow, extended with a **real, per-subject joint torque estimate** (using each subject's own measured arm length and their own recorded joint angle), a **joint stiffness estimate** (both per-trial and time-windowed), and a **physiologically-grounded Hill-type EMG-to-force model**, including a calibration-free variant validated with Leave-One-Subject-Out testing. The torque model was also **externally validated on an independent public dataset** to test cross-dataset generalisation.
 
 The pipeline covers the full workflow end to end:
 
@@ -35,8 +35,11 @@ The pipeline covers the full workflow end to end:
 | **Supervised Regression** | 11 regressors for continuous load estimation (grams) |
 | **Interpretable Model** | Explicit polynomial equation linking features to load, full equation exported to CSV |
 | **Real Per-Subject Torque** | Load converted to joint torque using each subject's own measured arm length and their own recorded joint angle (not an assumed constant) |
+| **Joint Stiffness Estimation (Per-Trial)** | Stiffness = Torque(Nm) / Angle(rad), computed per trial from the peak flexion angle |
+| **Joint Stiffness Estimation (Time-Windowed)** | EMG(t) → Torque(t) → Stiffness(t), using 200ms sliding windows (100ms step) with EMG-only input, so stiffness is resolved within a trial rather than as one value per session |
 | **Hill-Type EMG-to-Force Model** | Physiologically-grounded Biceps/Triceps force model (F_max, alpha) fit on Flexion-Extension data, validated on held-out test subjects |
 | **Calibration-Free Torque Model** | Anthropometric scaling of Hill-model strength parameters, validated with Leave-One-Subject-Out so a new subject needs zero personal EMG-torque calibration |
+| **External Dataset Validation** | The torque model trained on this dataset is tested on an independent public elbow EMG dataset (17 subjects, Zenodo), under both filtered and raw EMG, to check generalisation beyond this dataset's 10 subjects |
 | **Feature Importance** | Random Forest, XGBoost, Permutation, and SHAP importances compared |
 | **Unsupervised Clustering** | 8 clustering algorithms evaluated with ARI / Silhouette / Homogeneity |
 | **Learning Curves** | Subject-grouped (`GroupKFold`) overfitting/underfitting diagnostics |
@@ -50,6 +53,8 @@ The pipeline covers the full workflow end to end:
 ---
 
 ## Dataset
+
+### Primary (training) dataset
 
 We use the **[EMG Elbow Dataset](https://zenodo.org/record/7946782/files/EMG%20elbow%20dataset.zip)** hosted on Zenodo (Record `7946782`).
 
@@ -68,6 +73,18 @@ We use the **[EMG Elbow Dataset](https://zenodo.org/record/7946782/files/EMG%20e
 The dataset is **automatically downloaded and extracted** at the start of the notebook — no manual setup required.
 
 > Every split, score, and plot in this project is computed from these same 10 real subjects. This is a property of the public source data, not a design choice — using more subjects would require a larger dataset (see [Future Work](#future-work)).
+
+### External validation dataset
+
+For cross-dataset generalisation testing, we use **[A dataset for the investigation of upper limb torque prediction from EMG signals](https://zenodo.org/records/11209324)** (Zenodo, Record `11209324`).
+
+| Property | Value |
+|----------|-------|
+| **Subjects** | 17 |
+| **Task type** | Upper-limb *tracking* task (continuously varying target torque within a trial), not fixed discrete loads |
+| **EMG provided** | Both filtered (100 Hz, MVC-normalized) and raw (2000 Hz) |
+| **Ground truth** | Direct joint torque (Nm) and joint angle (rad) via an OpenSim model, no formula derivation needed |
+| **Used for** | Testing whether the primary torque model, trained only on the 10-subject dataset above, generalises to an independent dataset with a different EMG system and a different task design |
 
 ---
 
@@ -119,11 +136,20 @@ Polynomial `LinearRegression` (degree 1–3 searched), full coefficient table ex
 #### Real Per-Subject Torque
 `Torque = load(kg) * g * arm_length_m * sin(joint_angle)`, using each subject's own measured arm length and their own recorded joint angle — not a fixed assumed constant.
 
+#### Joint Stiffness (Per-Trial)
+`Stiffness = Torque(Nm) / Angle(rad)`, computed using each trial's peak flexion angle. Rows at 0g load are excluded, since torque is 0 by definition at zero load, and stiffness there is a formula artifact rather than a real measurement.
+
+#### Joint Stiffness (Time-Windowed, EMG(t) → Stiffness(t))
+Each trial is split into overlapping 200ms windows (100ms step). A separate torque model is trained using **EMG-only input features** (angle is deliberately excluded, since torque is directly computed from angle in this dataset — including it would let the model read the angle instead of learning the EMG-to-torque relationship). The windowed torque predictions are then divided by the window's angle to give a stiffness estimate that varies within a trial, not just once per session.
+
 #### Hill-Type EMG-to-Force Model
 `F = F_max * (1 - exp(-alpha * RMS))` fit per muscle (Biceps and Triceps) on Flexion-Extension data, combined as `Torque = arm_length * (F_Biceps - F_Triceps)`, giving physically meaningful parameters (peak force capacity and saturation rate) instead of opaque polynomial coefficients.
 
 #### Calibration-Free Torque Model
 Hill-model strength parameters (`F_max`) are regressed against each subject's arm length and body weight, then validated with Leave-One-Subject-Out — every prediction comes from a subject who contributed zero personal EMG-torque calibration data.
+
+#### External Dataset Validation
+The torque model (and a scale-invariant variant using only amplitude-independent EMG features — zero-crossing rate, skewness, kurtosis, mean frequency, peak frequency) is applied to the independent 17-subject Zenodo dataset described above, under two conditions: (1) using that dataset's filtered/MVC-normalized EMG, and (2) using its raw EMG. Both conditions are evaluated to separate "EMG preprocessing mismatch" from genuine cross-dataset generalisation.
 
 #### Unsupervised Clustering (8 Models)
 KMeans (k=3) · KMeans (k=4) · Agglomerative · Gaussian Mixture · DBSCAN · OPTICS · Birch · MeanShift
@@ -137,6 +163,7 @@ KMeans (k=3) · KMeans (k=4) · Agglomerative · Gaussian Mixture · DBSCAN · O
 - **Single subject-wise split** — quick, fair estimate but sensitive to which subjects land in test
 - **Subject-grouped cross-validation** (`GroupKFold`) — used for learning curves and 6-model CV comparison
 - **Leave-One-Subject-Out (LOSO)** — the most robust estimate: every one of the 10 subjects is held out and tested exactly once, then results are averaged; also used to validate the calibration-free torque model
+- **External dataset validation** — the strictest test: the torque model is applied to a completely different dataset (different subjects, different EMG hardware, different task design), with no fine-tuning
 
 ---
 
@@ -152,6 +179,8 @@ All figures are generated at 600 DPI and organized in [`results/`](results/) by 
 | **Regression** | Random Forest | **R² = 0.959**, RMSE = 189.4 g |
 | **Interpretable Equation** | Best degree searched (1–3) | See notebook output for selected degree and R² |
 | **Real Per-Subject Torque** | Linear (real arm length + real joint angle) | R² = 0.242, RMSE = 1.938 Nm |
+| **Joint Stiffness (Per-Trial)** | Torque / Angle | Consistent across load levels for most subjects; a small number of trials show inflated stiffness where the recorded peak angle was unusually low relative to other trials at the same load — flagged, not silently averaged out |
+| **Joint Stiffness (Time-Windowed, EMG-only input)** | Linear (EMG features only, angle excluded) | R² = 0.411, RMSE = 1.758 Nm (held-out subjects) |
 | **Hill-Type Model (Flexion-Extension, calibrated)** | Biceps/Triceps Hill-type fit | R² = 0.835, RMSE = 0.850 Nm |
 | **Calibration-Free Torque Model (LOSO)** | Anthropometric-scaled Hill model | R² = 0.307, RMSE = 1.737 Nm |
 | **Unsupervised (best ARI)** | See notebook output | Clustering does not separate load classes well |
@@ -168,6 +197,15 @@ All figures are generated at 600 DPI and organized in [`results/`](results/) by 
 
 > The LOSO average is reasonably close to the single-split test accuracy, which supports that the earlier single-split result was not just a lucky split.
 
+### External Dataset Validation — Cross-Dataset Generalisation
+
+| Condition | Internal (Held-Out Subjects, Same Dataset) | External (17-Subject Zenodo Dataset) |
+|-----------|---------------------------------------------|----------------------------------------|
+| Scale-invariant features, external filtered EMG | R² = 0.416 | R² = -47.3 |
+| Scale-invariant features, external raw EMG | R² = 0.416 | R² = -78.0 |
+
+> The model does **not** generalise to this external dataset under either condition. Switching between filtered and raw EMG on the external side made no meaningful difference, which rules out EMG preprocessing mismatch as the cause. The most likely explanation is a task-design mismatch: this project's dataset uses a **fixed discrete load per trial**, while the external dataset uses a **continuously varying target torque within each trial** (a tracking task), so the torque range and pattern per trial are not directly comparable between the two datasets. This is reported as an honest negative result rather than adjusted or hidden.
+
 ### Key Findings
 
 - **EMG amplitude and mean frequency both increase with load** — confirming sEMG amplitude and spectral content both encode applied force.
@@ -176,8 +214,10 @@ All figures are generated at 600 DPI and organized in [`results/`](results/) by 
 - **Clustering fails without labels** — load classes overlap heavily in feature space, confirming supervised learning is the right approach here.
 - **The interpretable polynomial equation** gives a fully transparent, exportable set of coefficients — a usable trade-off between accuracy and explainability.
 - **Real per-subject torque uses genuine measured values** — arm length and recorded joint angle come from each subject's own data, not an assumed constant, though the resulting R² (0.242) shows this rigid-pendulum approximation alone is a weak predictor of the real, noisy recorded joint angle.
+- **Time-windowed EMG(t) → Stiffness(t) estimation works from EMG alone** — restricting the model to EMG-only input (no angle) and predicting on 200ms windows still achieves R² = 0.411 on held-out subjects, showing the EMG signal itself carries a meaningful, time-resolved torque signal rather than the model simply reading the angle.
 - **The Hill-type model is far more physiologically informative** — fitting Biceps/Triceps force-activation curves directly (R² = 0.835 on held-out subjects) captures the true nonlinear EMG-to-force relationship much better than the simple kinematic torque formula.
 - **The calibration-free model is an honest, harder proof-of-concept** — using only arm length and body weight for a brand-new subject (R² = 0.307 under LOSO) is expectedly lower than the subject-calibrated Hill model, since it removes the need for any personal calibration trial.
+- **The model does not generalise to an independent external dataset** — tested against filtered and raw EMG from a different 17-subject public dataset, R² was strongly negative in both cases. This is attributed to a task-design mismatch (fixed discrete load vs. continuously varying tracking target) rather than EMG preprocessing, and is reported honestly as a limitation rather than masked.
 - **Feature importance techniques agree** — Random Forest, XGBoost, Permutation Importance, and SHAP all converge on similar informative channels/statistics.
 - **Deep learning underperforms tree-based models** on this dataset size — expected, since MLPs and CNNs typically need far more samples than the few hundred available here; the CNN also shows a validation/training accuracy gap consistent with overfitting on this small sample size.
 
@@ -200,6 +240,8 @@ results/
 │   ├── regression_11models.jpg
 │   ├── interpretable_model_equation.jpg
 │   ├── torque_model.jpg
+│   ├── joint_stiffness.jpg
+│   ├── windowed_stiffness_timecourse.jpg
 │   ├── hill_type_model.jpg
 │   ├── calibration_free_hill_model.jpg
 │   ├── feature_importance.jpg
@@ -208,7 +250,9 @@ results/
 │   ├── learning_curve_XGBoost.jpg
 │   ├── learning_curve_Random_Forest.jpg
 │   ├── cross_validation.jpg
-│   └── loso_validation.jpg
+│   ├── loso_validation.jpg
+│   ├── external_validation_torque.jpg
+│   └── external_validation_torque_raw.jpg
 ├── deep_learning/                    # Raw-signal 1D CNN results
 │   ├── cnn_training_curves.jpg
 │   └── cnn_confusion_matrix.jpg
@@ -220,8 +264,8 @@ results/
 | Folder | Contents |
 |--------|----------|
 | [`results/eda/`](results/eda/) | Raw waveform plots, histograms, correlation heatmaps, per-subject curves, PSD & spectrogram figures, subject-info relationship plots |
-| [`results/models/`](results/models/) | Classifier & regressor comparisons, interpretable equation plot, real torque model, Hill-type model, calibration-free torque model, feature importance, clustering |
-| [`results/validation/`](results/validation/) | Subject-grouped learning curves, subject-grouped cross-validation, LOSO validation |
+| [`results/models/`](results/models/) | Classifier & regressor comparisons, interpretable equation plot, real torque model, joint stiffness (per-trial and time-windowed), Hill-type model, calibration-free torque model, feature importance, clustering |
+| [`results/validation/`](results/validation/) | Subject-grouped learning curves, subject-grouped cross-validation, LOSO validation, external dataset validation (filtered and raw EMG) |
 | [`results/deep_learning/`](results/deep_learning/) | 1D CNN training curves and confusion matrix on unseen test subjects |
 | [`results/tables/`](results/tables/) | Full feature-importance table and full interpretable-equation coefficient table (CSV) |
 
@@ -260,7 +304,7 @@ Open and run the notebook top to bottom:
 jupyter notebook notebooks/semg-joint-torque-estimation.ipynb
 ```
 
-The notebook automatically downloads the dataset, engineers features, trains all models, runs every validation scheme, and regenerates every figure in `results/`.
+The notebook automatically downloads the primary dataset, engineers features, trains all models, runs every validation scheme (including the external dataset download and validation), and regenerates every figure in `results/`.
 
 ---
 
@@ -272,8 +316,8 @@ sEMG_Load_Estimation/
 │   └── semg-joint-torque-estimation.ipynb   # Full end-to-end analysis notebook
 ├── results/
 │   ├── eda/                                  # Exploratory data analysis figures
-│   ├── models/                                # Classification / regression / torque / interpretability / clustering figures
-│   ├── validation/                            # Learning curves, cross-validation, LOSO
+│   ├── models/                                # Classification / regression / torque / stiffness / interpretability / clustering figures
+│   ├── validation/                            # Learning curves, cross-validation, LOSO, external dataset validation
 │   ├── deep_learning/                         # 1D CNN training curves & confusion matrix
 │   └── tables/                                # Exported CSV result tables
 ├── assets/                                    # Banner and closing image
@@ -288,6 +332,9 @@ sEMG_Load_Estimation/
 
 - **Only 10 subjects** — a property of the public dataset, not a choice made here. No subjects are invented or duplicated.
 - **Real per-subject torque uses a rigid-pendulum approximation** — it uses each subject's own measured arm length and their own recorded joint angle (not an assumed constant), but the underlying rigid-pendulum formula and the angle's zero-reference are still standard modeling simplifications, and the resulting R² (0.242) shows the recorded joint angle alone does not tightly track true torque.
+- **Joint stiffness inherits the torque model's noise, and is unstable near zero angle** — since stiffness = torque / angle, trials or windows where the angle is near zero are excluded to avoid unstable division, and a small number of remaining trials show inflated stiffness values traced to unusually low recorded peak angles rather than a genuine stiffness change.
+- **The time-windowed model was validated using a linear model on engineered features, not a sequence model** — it demonstrates that EMG-only, time-resolved torque/stiffness estimation is feasible (R² = 0.411), but a recurrent or convolutional sequence model may capture the temporal dynamics better.
+- **The external dataset does not validate the model** — despite two genuine attempts (filtered and raw EMG, plus a scale-invariant feature set to rule out amplitude-scale mismatch), the model does not generalise to the external 17-subject dataset. This is reported as a negative result and attributed to a task-design mismatch (fixed discrete load vs. continuous tracking target), not fixed or hidden.
 - **Hill-type model's alpha_t parameter is not well constrained** — during the calibrated fit, `alpha_t` landed at its upper bound (30), meaning the Triceps RMS range in this recording is too narrow to see clear saturation. This specific parameter should be treated as an upper-bound estimate, not a precise physiological constant.
 - **Calibration-free torque model is a proof-of-concept** — with only 10 subjects, the anthropometric scaling from arm length and body weight is illustrative of the approach rather than a clinically validated calibration-free system.
 - **Small-sample deep learning** — both the MLP and CNN are working with only a few hundred samples/windows, so their scores are noisier and generally behind the tree-based models trained on engineered features, and the CNN shows some overfitting (training/validation accuracy gap).
@@ -299,8 +346,8 @@ sEMG_Load_Estimation/
 
 - Collect a larger, multi-site dataset with more subjects to reduce variance in LOSO estimates and better constrain Hill-type model parameters like `alpha_t`.
 - Extend the calibration-free torque model with more anthropometric predictors (e.g., limb circumference, muscle cross-sectional area) to improve its Leave-One-Subject-Out accuracy.
-- Explore transfer learning / domain adaptation across subjects to improve CNN generalisation and reduce the observed overfitting gap.
-- Extend the CNN to a CNN-LSTM or Transformer-based sequence model for raw sEMG.
+- Explore domain adaptation across datasets (e.g., mixing a small number of external-dataset subjects into training) to test whether the external-validation gap can be closed, rather than only testing on a fully unseen dataset.
+- Replace the linear time-windowed stiffness model with a sequence model (CNN-LSTM or Transformer) that can exploit temporal dependencies between windows.
 - Real-time deployment on edge/wearable devices for rehabilitation monitoring.
 
 ---
